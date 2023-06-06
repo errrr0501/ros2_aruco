@@ -39,7 +39,7 @@ from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseArray, Pose
 from ros2_aruco_interfaces.msg import ArucoMarkers
-
+from ros2_aruco_interfaces.srv import GetMaskImage
 
 class ArucoNode(rclpy.node.Node):
 
@@ -47,11 +47,12 @@ class ArucoNode(rclpy.node.Node):
         super().__init__('aruco_node')
 
         # Declare and read parameters
-        self.declare_parameter("marker_size", .0625)
+        self.declare_parameter("marker_size", .053)
         self.declare_parameter("aruco_dictionary_id", "DICT_5X5_250")
-        self.declare_parameter("image_topic", "/camera/image_raw")
-        self.declare_parameter("camera_info_topic", "/camera/camera_info")
+        self.declare_parameter("image_topic", "/camera/color/image_raw")
+        self.declare_parameter("camera_info_topic", "/camera/color/camera_info")
         self.declare_parameter("camera_frame", None)
+        self.declare_parameter("marker_info_topic", "/aruco_markers")
 
         self.marker_size = self.get_parameter("marker_size").get_parameter_value().double_value
         dictionary_id_name = self.get_parameter(
@@ -59,6 +60,7 @@ class ArucoNode(rclpy.node.Node):
         image_topic = self.get_parameter("image_topic").get_parameter_value().string_value
         info_topic = self.get_parameter("camera_info_topic").get_parameter_value().string_value
         self.camera_frame = self.get_parameter("camera_frame").get_parameter_value().string_value
+        self.armarker_info_topic = self.get_parameter("marker_info_topic").get_parameter_value().string_value
 
         # Make sure we have a valid dictionary id:
         try:
@@ -82,6 +84,13 @@ class ArucoNode(rclpy.node.Node):
         # Set up publishers
         self.poses_pub = self.create_publisher(PoseArray, 'aruco_poses', 10)
         self.markers_pub = self.create_publisher(ArucoMarkers, 'aruco_markers', 10)
+
+        self.armarker_Info_subscriber_ = self.create_subscription(ArucoMarkers, self.armarker_info_topic, 
+                                                   self.armarker_Info_callback, 10)
+        image_masking_service = self.create_service(GetMaskImage, "image_masking", 
+                                           self.mask_image)
+        self.receive_mask = False
+        self.get_mask_image = False
 
         # Set up fields for camera parameters
         self.info_msg = None
@@ -156,6 +165,22 @@ class ArucoNode(rclpy.node.Node):
             self.markers_pub.publish(markers)
 
 
+    def armarker_Info_callback(self, data):
+        print(data.marker_ids)
+        print(data.poses)
+        if self.receive_mask:
+            if len(data.marker_ids) == 4:
+                self.get_mask_image = True
+
+
+    def mask_image(self, res, req):
+        self.receive_mask = True
+        
+        if self.get_mask_image:
+            res.end_process = True
+            self.get_mask_image = False
+            self.receive_mask = False
+            return res
 def main():
     rclpy.init()
     node = ArucoNode()

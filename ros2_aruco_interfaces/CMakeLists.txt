@@ -29,6 +29,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ArucoMarkers.msg"
   DEPENDENCIES geometry_msgs
   DEPENDENCIES std_msgs
+  "srv/GetMaskImage.srv"
  )
 
 
