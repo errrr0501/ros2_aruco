@@ -1,3 +1,4 @@
-bool get_mask_image
+bool get_mask
 ---
-bool end_process
+sensor_msgs/Image[] mask_image
+string image_condition

@@ -19,6 +19,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 find_package(rosidl_default_generators REQUIRED)
 # uncomment the following section in order to fill in
@@ -27,9 +28,11 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ArucoMarkers.msg"
+  "srv/GetMaskImage.srv"
+  DEPENDENCIES builtin_interfaces
   DEPENDENCIES geometry_msgs
   DEPENDENCIES std_msgs
-  "srv/GetMaskImage.srv"
+  DEPENDENCIES sensor_msgs
  )
 
 

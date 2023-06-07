@@ -40,6 +40,7 @@ from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseArray, Pose
 from ros2_aruco_interfaces.msg import ArucoMarkers
 from ros2_aruco_interfaces.srv import GetMaskImage
+from math import *
 
 class ArucoNode(rclpy.node.Node):
 
@@ -61,6 +62,13 @@ class ArucoNode(rclpy.node.Node):
         info_topic = self.get_parameter("camera_info_topic").get_parameter_value().string_value
         self.camera_frame = self.get_parameter("camera_frame").get_parameter_value().string_value
         self.armarker_info_topic = self.get_parameter("marker_info_topic").get_parameter_value().string_value
+
+        self.corners = []
+        self.marker_ids = []
+        self.cv_image = None
+        self.masked_image = ['initial']
+        self.get_marker = False
+        self.get_mask_image = False
 
         # Make sure we have a valid dictionary id:
         try:
@@ -88,9 +96,8 @@ class ArucoNode(rclpy.node.Node):
         self.armarker_Info_subscriber_ = self.create_subscription(ArucoMarkers, self.armarker_info_topic, 
                                                    self.armarker_Info_callback, 10)
         image_masking_service = self.create_service(GetMaskImage, "image_masking", 
-                                           self.mask_image)
-        self.receive_mask = False
-        self.get_mask_image = False
+                                           self.return_mask_image)
+
 
         # Set up fields for camera parameters
         self.info_msg = None
@@ -116,6 +123,8 @@ class ArucoNode(rclpy.node.Node):
 
         cv_image = self.bridge.imgmsg_to_cv2(img_msg,
                                              desired_encoding='mono8')
+        self.cv_image = self.bridge.imgmsg_to_cv2(img_msg,
+                                             desired_encoding='bgr8')
         markers = ArucoMarkers()
         pose_array = PoseArray()
         if self.camera_frame is None:
@@ -129,20 +138,21 @@ class ArucoNode(rclpy.node.Node):
         markers.header.stamp = img_msg.header.stamp
         pose_array.header.stamp = img_msg.header.stamp
 
-        corners, marker_ids, rejected = cv2.aruco.detectMarkers(cv_image,
+        self.corners, self.marker_ids, rejected = cv2.aruco.detectMarkers(cv_image,
                                                                 self.aruco_dictionary,
                                                                 parameters=self.aruco_parameters)
-        if marker_ids is not None:
+        if self.marker_ids is not None:
+            self.get_marker = True
 
             if cv2.__version__ > '4.0.0':
-                rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(corners,
+                rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(self.corners,
                                                                       self.marker_size, self.intrinsic_mat,
                                                                       self.distortion)
             else:
-                rvecs, tvecs = cv2.aruco.estimatePoseSingleMarkers(corners,
+                rvecs, tvecs = cv2.aruco.estimatePoseSingleMarkers(self.corners,
                                                                    self.marker_size, self.intrinsic_mat,
                                                                    self.distortion)
-            for i, marker_id in enumerate(marker_ids):
+            for i, marker_id in enumerate(self.marker_ids):
                 pose = Pose()
                 pose.position.x = tvecs[i][0][0]
                 pose.position.y = tvecs[i][0][1]
@@ -163,24 +173,80 @@ class ArucoNode(rclpy.node.Node):
 
             self.poses_pub.publish(pose_array)
             self.markers_pub.publish(markers)
+        else:
+            self.get_marker = False
 
 
     def armarker_Info_callback(self, data):
-        print(data.marker_ids)
-        print(data.poses)
-        if self.receive_mask:
-            if len(data.marker_ids) == 4:
-                self.get_mask_image = True
-
-
-    def mask_image(self, res, req):
-        self.receive_mask = True
         
-        if self.get_mask_image:
-            res.end_process = True
+        # print(self.marker_ids)
+        id1_marker_pos = []
+        id2_marker_pos = []
+        if len(data.marker_ids) == 8:
+            for i in range(8):
+                if self.marker_ids[i] == 1:
+                    id1_marker_pos.append([int(self.corners[i][0][0][0]), int(self.corners[i][0][0][1])])
+                elif self.marker_ids[i] == 2:
+                    id2_marker_pos.append([int(self.corners[i][0][0][0]), int(self.corners[i][0][0][1])])
+            marker_pos = [id1_marker_pos, id2_marker_pos]
+            self.mask_image(marker_pos)
+        # if len(data.marker_ids) == 4:
+
+        #     marker_pos = [[int(self.corners[0][0][0][0]), int(self.corners[0][0][0][1])],
+        #                   [int(self.corners[1][0][0][0]), int(self.corners[1][0][0][1])],
+        #                   [int(self.corners[2][0][0][0]), int(self.corners[2][0][0][1])],
+        #                   [int(self.corners[3][0][0][0]), int(self.corners[3][0][0][1])]]
+
+            # self.mask_image(marker_pos)
+        else:
+            self.get_mask_image = False
+            return
+                
+    def mask_image(self,marker_pos):
+
+        masked_img_list = []
+        
+
+        for i in range(len(marker_pos)):
+            mask = np.zeros(self.cv_image.shape[:3], np.uint8)
+            poly_points = np.array([marker_pos[i][0], marker_pos[i][1], marker_pos[i][2]])
+            cv2.fillPoly(mask, pts=[poly_points], color=(255, 255, 255))
+            poly_points = np.array([marker_pos[i][0], marker_pos[i][1], marker_pos[i][3]])
+            cv2.fillPoly(mask, pts=[poly_points], color=(255, 255, 255))
+            poly_points = np.array([marker_pos[i][0], marker_pos[i][2], marker_pos[i][3]])
+            cv2.fillPoly(mask, pts=[poly_points], color=(255, 255, 255))
+
+            masked_img = np.bitwise_and(self.cv_image, mask)
+        
+            masked_img_list.append(self.bridge.cv2_to_imgmsg(masked_img, encoding="passthrough"))
+
+        self.masked_image = masked_img_list
+        if type(self.masked_image[0]) == type('str'):
+            del self.masked_image[0]
+        self.get_mask_image = True
+
+    def return_mask_image(self, req, res):
+        if not self.get_marker:
+            res.image_condition = "bad"
             self.get_mask_image = False
             self.receive_mask = False
+            self.masked_image = ['initial']
             return res
+
+        else:
+            if self.get_mask_image:
+                res.mask_image = self.masked_image
+                res.image_condition = "good"
+                self.get_mask_image = False
+                self.receive_mask = False
+                self.masked_image = ['initial']
+                return res
+            else:
+                res.image_condition = "bad"
+                self.get_mask_image = False
+                self.receive_mask = False
+                self.masked_image = ['initial']
+                return res
 def main():
     rclpy.init()
     node = ArucoNode()
