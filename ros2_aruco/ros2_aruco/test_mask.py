@@ -6,6 +6,7 @@ from rclpy.node import Node
 from ros2_aruco_interfaces.srv import GetMaskImage
 from cv_bridge import CvBridge
 import cv2
+import numpy as np
 
 class ImageMaskingClient():
 
@@ -43,6 +44,20 @@ def main():
         cv_image = bridge.imgmsg_to_cv2(response.mask_image[1],
                                      desired_encoding='passthrough')
         cv2.imshow('Masked Image', cv_image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        cv_image = bridge.imgmsg_to_cv2(response.mask_image[2],
+                                     desired_encoding='32FC1')
+        cv_image_array = np.array(cv_image, dtype = np.dtype('f8'))
+        cv_image_norm = cv2.normalize(cv_image_array, cv_image_array, 0, 1, cv2.NORM_MINMAX)
+        cv2.imshow('Masked Image', cv_image_norm)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        cv_image = bridge.imgmsg_to_cv2(response.mask_image[3],
+                                     desired_encoding='32FC1')
+        cv_image_array = np.array(cv_image, dtype = np.dtype('f8'))
+        cv_image_norm = cv2.normalize(cv_image_array, cv_image_array, 0, 1, cv2.NORM_MINMAX)
+        cv2.imshow('Masked Image', cv_image_norm)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
     node.destroy_node()

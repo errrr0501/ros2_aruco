@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'aruco_node = ros2_aruco.aruco_node:main',
+            'mask_color_and_depth_image = ros2_aruco.mask_color_and_depth_image:main',
             'aruco_generate_marker = ros2_aruco.aruco_generate_marker:main',
             'test_mask = ros2_aruco.test_mask:main',
         ],

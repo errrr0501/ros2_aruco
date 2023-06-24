@@ -42,18 +42,26 @@ from ros2_aruco_interfaces.msg import ArucoMarkers
 from ros2_aruco_interfaces.srv import GetMaskImage
 from math import *
 
-class ArucoNode(rclpy.node.Node):
+class MaskColorAndDepthImage(rclpy.node.Node):
 
     def __init__(self):
         super().__init__('aruco_node')
 
         # Declare and read parameters
+        # self.declare_parameter("marker_size", .053)
+        # self.declare_parameter("aruco_dictionary_id", "DICT_5X5_250")
+        # self.declare_parameter("image_topic", "/camera/color/image_raw")#???
+        # self.declare_parameter("camera_info_topic", "/camera/color/camera_info")
+        # self.declare_parameter("camera_frame", None)
+        # self.declare_parameter("depth_image_topic", "/camera/aligned_depth_to_color/image_raw")
+        # self.declare_parameter("marker_info_topic", "/aruco_markers")
+
         self.declare_parameter("marker_size", .053)
         self.declare_parameter("aruco_dictionary_id", "DICT_5X5_250")
-        self.declare_parameter("image_topic", "/camera/color/image_raw")#???
-        self.declare_parameter("camera_info_topic", "/camera/color/camera_info")
+        self.declare_parameter("image_topic", "/rgb/image_raw")
+        self.declare_parameter("camera_info_topic", "/rgb/camera_info")
         self.declare_parameter("camera_frame", None)
-        self.declare_parameter("depth_image_topic", "/camera/color/camera_info")
+        self.declare_parameter("depth_image_topic", "/depth_to_rgb/image_raw")
         self.declare_parameter("marker_info_topic", "/aruco_markers")
 
         self.marker_size = self.get_parameter("marker_size").get_parameter_value().double_value
@@ -61,12 +69,14 @@ class ArucoNode(rclpy.node.Node):
             "aruco_dictionary_id").get_parameter_value().string_value
         image_topic = self.get_parameter("image_topic").get_parameter_value().string_value
         info_topic = self.get_parameter("camera_info_topic").get_parameter_value().string_value
+        depth_image_topic = self.get_parameter("depth_image_topic").get_parameter_value().string_value
         self.camera_frame = self.get_parameter("camera_frame").get_parameter_value().string_value
         self.armarker_info_topic = self.get_parameter("marker_info_topic").get_parameter_value().string_value
 
         self.corners = []
         self.marker_ids = []
         self.cv_image = None
+        self.depth_image = None
         self.masked_image = ['initial']
         self.get_marker = False
         self.get_mask_image = False
@@ -90,6 +100,9 @@ class ArucoNode(rclpy.node.Node):
         self.create_subscription(Image, image_topic,
                                  self.image_callback, qos_profile_sensor_data)
 
+
+        self.create_subscription(Image, depth_image_topic,
+                                 self.depth_image_callback, qos_profile_sensor_data)
         # Set up publishers
         self.poses_pub = self.create_publisher(PoseArray, 'aruco_poses', 10)
         self.markers_pub = self.create_publisher(ArucoMarkers, 'aruco_markers', 10)
@@ -153,6 +166,17 @@ class ArucoNode(rclpy.node.Node):
                 rvecs, tvecs = cv2.aruco.estimatePoseSingleMarkers(self.corners,
                                                                    self.marker_size, self.intrinsic_mat,
                                                                    self.distortion)
+            
+            # for i in range(len(rvecs)):
+            #     self.cv_image = cv2.aruco.drawAxis(self.cv_image, 
+            #                                        self.intrinsic_mat, 
+            #                                        self.distortion, 
+            #                                        rvecs[i], 
+            #                                        tvecs[i], 
+            #                                        0.02)
+            # cv2.imshow('QueryImage', self.cv_image)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
             for i, marker_id in enumerate(self.marker_ids):
                 pose = Pose()
                 pose.position.x = tvecs[i][0][0]
@@ -177,13 +201,19 @@ class ArucoNode(rclpy.node.Node):
         else:
             self.get_marker = False
 
+    def depth_image_callback(self, depth_img_msg):
+
+        self.depth_image = self.bridge.imgmsg_to_cv2(depth_img_msg,
+                                             desired_encoding='16UC1')
+        
+        
 
     def armarker_Info_callback(self, data):
-        
+
         # print(self.marker_ids)
         id1_marker_pos = []
         id2_marker_pos = []
-        if len(data.marker_ids) == 8:
+        if len(data.marker_ids) >= 8:
             for i in range(8):
                 if self.marker_ids[i] == 1:
                     id1_marker_pos.append([int(self.corners[i][0][0][0]), int(self.corners[i][0][0][1])])
@@ -213,7 +243,7 @@ class ArucoNode(rclpy.node.Node):
 
         masked_img_list = []
         
-
+        print(marker_pos)
         for i in range(len(marker_pos)):
             mask = np.zeros(self.cv_image.shape[:3], np.uint8)
             poly_points = np.array([marker_pos[i][0], marker_pos[i][1], marker_pos[i][2]])
@@ -223,9 +253,24 @@ class ArucoNode(rclpy.node.Node):
             poly_points = np.array([marker_pos[i][0], marker_pos[i][2], marker_pos[i][3]])
             cv2.fillPoly(mask, pts=[poly_points], color=(255, 255, 255))
 
+            print(type(self.cv_image[0][0][0]))
             masked_img = np.bitwise_and(self.cv_image, mask)
         
             masked_img_list.append(self.bridge.cv2_to_imgmsg(masked_img, encoding="passthrough"))
+
+        for k in range(len(marker_pos)):
+            depth_mask = np.zeros(self.depth_image.shape[:2], np.uint16)
+            poly_points = np.array([marker_pos[k][0], marker_pos[k][1], marker_pos[k][2]])
+            cv2.fillPoly(depth_mask, pts=[poly_points], color=(255, 255, 255))
+            poly_points = np.array([marker_pos[k][0], marker_pos[k][1], marker_pos[k][3]])
+            cv2.fillPoly(depth_mask, pts=[poly_points], color=(255, 255, 255))
+            poly_points = np.array([marker_pos[k][0], marker_pos[k][2], marker_pos[k][3]])
+            cv2.fillPoly(depth_mask, pts=[poly_points], color=(255, 255, 255))
+            
+            print(type(self.depth_image[0][0]))
+            depth_masked_img = np.bitwise_and(self.depth_image, depth_mask)
+        
+            masked_img_list.append(self.bridge.cv2_to_imgmsg(depth_masked_img, encoding="passthrough"))
 
         self.masked_image = masked_img_list
         if type(self.masked_image[0]) == type('str'):
@@ -256,7 +301,7 @@ class ArucoNode(rclpy.node.Node):
                 return res
 def main():
     rclpy.init()
-    node = ArucoNode()
+    node = MaskColorAndDepthImage()
     rclpy.spin(node)
 
     node.destroy_node()
