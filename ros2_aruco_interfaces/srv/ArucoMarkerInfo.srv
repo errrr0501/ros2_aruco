@@ -1,4 +1,5 @@
 bool process
 ---
-ros2_aruco_interfaces/ArucoMarkers[] markers
+int64[] marker_ids
+geometry_msgs/Pose[] poses
 #string image_condition

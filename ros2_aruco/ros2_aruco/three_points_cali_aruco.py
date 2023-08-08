@@ -88,16 +88,16 @@ class ThreePointsCaliAruco(rclpy.node.Node):
                                                  self.info_callback,
                                                  qos_profile_sensor_data)
 
-        self.create_subscription(Image, image_topic,
+        self.image_sub = self.create_subscription(Image, image_topic,
                                  self.image_callback, qos_profile_sensor_data)
 
         # Set up publishers
         # self.poses_pub = self.create_publisher(PoseArray, 'aruco_poses', 10)
         # self.markers_pub = self.create_publisher(ArucoMarkers, 'aruco_markers', 10)
 
-        self.armarker_Info_subscriber_ = self.create_subscription(ArucoMarkers, self.armarker_info_topic, 
-                                                   self.armarker_Info_callback, 10)
-        self.calibration_client = self.create_service(ArucoMarkerInfo, 
+        # self.armarker_Info_subscriber_ = self.create_subscription(ArucoMarkers, self.armarker_info_topic, 
+        #                                            self.armarker_Info_callback, 10)
+        self.calibration_service = self.create_service(ArucoMarkerInfo, 
                                                       "calibration_points",
                                                       self.send_calibration_point)
 
@@ -112,14 +112,17 @@ class ThreePointsCaliAruco(rclpy.node.Node):
         self.bridge = CvBridge()
 
     def info_callback(self, info_msg):
+        # self.get_logger().warn("Hi--------------")
         self.info_msg = info_msg
-        self.intrinsic_mat = np.reshape(np.array(self.info_msg.k), (3, 3))
-        self.distortion = np.array(self.info_msg.d)
+        # self.intrinsic_mat = np.reshape(np.array(self.info_msg.k), (3, 3))
+        # self.distortion = np.array(self.info_msg.d)
+        self.intrinsic_mat = np.reshape(np.array([1362.3206884245012, 0.0, 937.5666174434277, 0.0, 1360.1275923037902, 552.6777467209566, 0.0 ,0.0, 1.0]), (3, 3))
+        self.distortion = np.array([0.18133544672027332, -0.5755924836142977, 0.0024102913275606277, -0.0007547425526466893, 0.5218626472027835])
         # Assume that camera parameters will remain the same...
         self.destroy_subscription(self.info_sub)
 
     def image_callback(self, img_msg):
-
+        # self.get_logger().warn("--------------")
         if self.info_msg is None:
             self.get_logger().warn("No camera info has been received!")
             return
@@ -172,11 +175,13 @@ class ThreePointsCaliAruco(rclpy.node.Node):
 
                 self.pose_array.poses.append(pose)
                 markers.poses.append(pose)
-                markers.marker_ids.append(marker_id)
+                # self.get_logger().info("------------{}".format(marker_id))
+                markers.marker_ids.append(marker_id[0])
 
             # self.poses_pub.publish(pose_array)
             # self.markers_pub.publish(markers)
             self.markers = markers
+            self.get_logger().info("------------{}".format(self.markers.marker_ids))
 
             # self.call_calibration(self.marker_ids, self.pose_array)
         else:
@@ -192,7 +197,8 @@ class ThreePointsCaliAruco(rclpy.node.Node):
         #     res.markers = self.markers
         #     # res.pose_array = []
         #     return res
-        res.markers = self.markers     
+        res.marker_ids = self.markers.marker_ids    
+        res.poses = self.markers.poses
         self.markers = [] 
         return res     
 def main():
