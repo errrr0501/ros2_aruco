@@ -28,6 +28,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ArucoMarkers.msg"
+  "srv/ArucoMarkerInfo.srv"
   "srv/GetMaskImage.srv"
   DEPENDENCIES builtin_interfaces
   DEPENDENCIES geometry_msgs

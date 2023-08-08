@@ -1,0 +1,4 @@
+bool process
+---
+ros2_aruco_interfaces/ArucoMarkers[] markers
+#string image_condition
