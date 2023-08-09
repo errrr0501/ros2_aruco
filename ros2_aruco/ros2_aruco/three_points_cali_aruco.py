@@ -49,7 +49,7 @@ class ThreePointsCaliAruco(rclpy.node.Node):
         super().__init__('three_points_cali_aruco')
 
         # Declare and read parameters
-        self.declare_parameter("marker_size", .053)
+        self.declare_parameter("marker_size", .0498)
         self.declare_parameter("aruco_dictionary_id", "DICT_5X5_250")
         self.declare_parameter("image_topic", "/camera/color/image_raw")#???
         self.declare_parameter("camera_info_topic", "/camera/color/camera_info")
