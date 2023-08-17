@@ -50,12 +50,16 @@ class ThreePointsCaliAruco(rclpy.node.Node):
         super().__init__('three_points_cali_aruco')
 
         # Declare and read parameters
-        self.declare_parameter("marker_size", .0498)
-        self.declare_parameter("aruco_dictionary_id", "DICT_5X5_250")
+        # self.declare_parameter("marker_size", .0498)
+        # self.declare_parameter("aruco_dictionary_id", "DICT_5X5_250")
+        self.declare_parameter("marker_size", .0459)
+        self.declare_parameter("aruco_dictionary_id", "DICT_4X4_250")
         self.declare_parameter("image_topic", "/camera/color/image_raw")#???
         self.declare_parameter("camera_info_topic", "/camera/color/camera_info")
         self.declare_parameter("camera_frame", None)
         self.declare_parameter("marker_info_topic", "/aruco_markers")
+        self.declare_parameter("camera_intrinsics", None)
+        self.declare_parameter("camera_distortion", None)
 
         self.marker_size = self.get_parameter("marker_size").get_parameter_value().double_value
         dictionary_id_name = self.get_parameter(
@@ -64,6 +68,11 @@ class ThreePointsCaliAruco(rclpy.node.Node):
         info_topic = self.get_parameter("camera_info_topic").get_parameter_value().string_value
         self.camera_frame = self.get_parameter("camera_frame").get_parameter_value().string_value
         self.armarker_info_topic = self.get_parameter("marker_info_topic").get_parameter_value().string_value
+        self.camera_intrinsics = self.get_parameter("camera_intrinsics").get_parameter_value().double_array_value
+        self.camera_distortion = self.get_parameter("camera_distortion").get_parameter_value().double_array_value
+
+        self.get_logger().warn("------------{}".format(self.camera_intrinsics))
+        self.get_logger().warn("------------{}".format(self.camera_distortion))
 
         self.corners = []
         self.marker_ids = []
@@ -119,8 +128,8 @@ class ThreePointsCaliAruco(rclpy.node.Node):
         self.info_msg = info_msg
         # self.intrinsic_mat = np.reshape(np.array(self.info_msg.k), (3, 3))
         # self.distortion = np.array(self.info_msg.d)
-        self.intrinsic_mat = np.reshape(np.array([1362.3206884245012, 0.0, 937.5666174434277, 0.0, 1360.1275923037902, 552.6777467209566, 0.0 ,0.0, 1.0]), (3, 3))
-        self.distortion = np.array([0.18133544672027332, -0.5755924836142977, 0.0024102913275606277, -0.0007547425526466893, 0.5218626472027835])
+        self.intrinsic_mat = np.reshape(np.array(self.camera_intrinsics), (3, 3))
+        self.distortion = np.array(self.camera_distortion)
         # Assume that camera parameters will remain the same...
         self.destroy_subscription(self.info_sub)
 
