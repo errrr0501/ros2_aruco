@@ -30,6 +30,7 @@ Version: 10/26/2020
 import rclpy
 import rclpy.node
 from rclpy.qos import qos_profile_sensor_data
+import rclpy.qos as QOS
 from cv_bridge import CvBridge
 import numpy as np
 import cv2
@@ -88,8 +89,10 @@ class ThreePointsCaliAruco(rclpy.node.Node):
                                                  self.info_callback,
                                                  qos_profile_sensor_data)
 
+        # self.image_sub = self.create_subscription(Image, image_topic,
+        #                          self.image_callback, qos_profile_sensor_data)
         self.image_sub = self.create_subscription(Image, image_topic,
-                                 self.image_callback, qos_profile_sensor_data)
+                                 self.image_callback, QOS.QoSProfile(depth=1, reliability=QOS.ReliabilityPolicy.BEST_EFFORT))
 
         # Set up publishers
         # self.poses_pub = self.create_publisher(PoseArray, 'aruco_poses', 10)
