@@ -58,8 +58,8 @@ class ThreePointsCaliAruco(rclpy.node.Node):
         self.declare_parameter("camera_info_topic", "/camera/color/camera_info")
         self.declare_parameter("camera_frame", None)
         self.declare_parameter("marker_info_topic", "/aruco_markers")
-        self.declare_parameter("camera_intrinsics", None)
-        self.declare_parameter("camera_distortion", None)
+        self.declare_parameter("camera_intrinsics", rclpy.Parameter.Type.DOUBLE_ARRAY)
+        self.declare_parameter("camera_distortion", rclpy.Parameter.Type.DOUBLE_ARRAY)
 
         self.marker_size = self.get_parameter("marker_size").get_parameter_value().double_value
         dictionary_id_name = self.get_parameter(
@@ -98,10 +98,10 @@ class ThreePointsCaliAruco(rclpy.node.Node):
                                                  self.info_callback,
                                                  qos_profile_sensor_data)
 
-        # self.image_sub = self.create_subscription(Image, image_topic,
-        #                          self.image_callback, qos_profile_sensor_data)
         self.image_sub = self.create_subscription(Image, image_topic,
-                                 self.image_callback, QOS.QoSProfile(depth=1, reliability=QOS.ReliabilityPolicy.BEST_EFFORT))
+                                 self.image_callback, qos_profile_sensor_data)
+        # self.image_sub = self.create_subscription(Image, image_topic,
+        #                          self.image_callback, QOS.QoSProfile(depth=1, reliability=QOS.ReliabilityPolicy.BEST_EFFORT))
 
         # Set up publishers
         # self.poses_pub = self.create_publisher(PoseArray, 'aruco_poses', 10)
@@ -122,6 +122,8 @@ class ThreePointsCaliAruco(rclpy.node.Node):
         self.aruco_dictionary = cv2.aruco.Dictionary_get(dictionary_id)
         self.aruco_parameters = cv2.aruco.DetectorParameters_create()
         self.bridge = CvBridge()
+        self.get_logger().warn("END asdfasdfasdfa")
+
 
     def info_callback(self, info_msg):
         # self.get_logger().warn("Hi--------------")
@@ -134,7 +136,7 @@ class ThreePointsCaliAruco(rclpy.node.Node):
         self.destroy_subscription(self.info_sub)
 
     def image_callback(self, img_msg):
-        # self.get_logger().warn("--------------")
+        self.get_logger().warn("--------------")
         if self.info_msg is None:
             self.get_logger().warn("No camera info has been received!")
             return
@@ -216,7 +218,10 @@ class ThreePointsCaliAruco(rclpy.node.Node):
 def main():
     rclpy.init()
     node = ThreePointsCaliAruco()
+    print('END NODE INIT')
     rclpy.spin(node)
+    print('END SPIN')
+
 
     node.destroy_node()
     rclpy.shutdown()
