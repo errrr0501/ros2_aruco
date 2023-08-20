@@ -211,8 +211,12 @@ class ThreePointsCaliAruco(rclpy.node.Node):
         #     res.markers = self.markers
         #     # res.pose_array = []
         #     return res
-        res.marker_ids = self.markers.marker_ids    
-        res.poses = self.markers.poses
+        if self.markers == []:
+            res.marker_ids = []
+            res.poses = []
+        else:
+            res.marker_ids = self.markers.marker_ids    
+            res.poses = self.markers.poses
         self.markers = [] 
         return res     
 def main():
